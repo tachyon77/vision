@@ -71,49 +71,42 @@ criterion = nn.MSELoss()
 
 model.train()
 
-print(datetime.datetime.now(), " : Training started." )
+print(datetime.datetime.now(), ": Training started." )
 
 while True:
+  print (datetime.datetime.now(), ": Epoch started ...", end="", flush=True)
   total_loss = 0
+  total_recon_loss = 0.
   epoch += 1
-
   n = 0
-
   for batch_features, _ in train_loader:
     n += 1
-    #print ("batch_features shape: ", batch_features.shape)
-    
     batch_features = batch_features.to(device)
-
-    #print ("batch_features shape: ", batch_features.shape)
-
     optimizer.zero_grad()
-
     dual_loss, recon_loss, recon = model (batch_features)
-    
-    if (n % 80 == 0):
-      print ("Reconstruction loss = ", recon_loss.item())
     train_loss = dual_loss
-
-        
     train_loss.backward()
     optimizer.step()
-
     total_loss += train_loss.item()
+    total_recon_loss += recon_loss.item()
     
   avg_loss = total_loss / len(train_loader)
+  avg_recon_loss = total_recon_loss / len(train_loader)
 
-  if (epoch) % 1 == 0:
-    print(datetime.datetime.now(), " : epoch : {}, dual loss = {}".format(epoch, avg_loss))
+  print ("completed.", flush=True)
+  per_pixel_sqrd_err = str(round(avg_recon_loss * 100, 4))
+  print ("Recon Squared Error = ", avg_recon_loss, ", (", per_pixel_sqrd_err, ")")
+  print(datetime.datetime.now(), " : epoch : {}, dual loss = {}".format(epoch, avg_loss))
 
   if (epoch) % 2 == 0:
-    print ("Saving model")
+    print ("Saving model...", end=" ")
     torch.save({
         'epoch': epoch,
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),        
         'avg_loss': avg_loss
         }, checkpoint_path)
+    print ("Saving complete.")
   
 test_dataset = torchvision.datasets.CIFAR100(
     root=data_dir, train=False, transform=transform, download=True

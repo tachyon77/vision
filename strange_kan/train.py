@@ -60,7 +60,7 @@ model = model.to(device=device)
 
 epoch = 0
 
-load_checkpoint = False
+load_checkpoint = True
 
 if load_checkpoint:
   print ("Loading model from latest checkpoint...")
