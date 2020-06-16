@@ -1,3 +1,5 @@
+import matplotlib
+matplotlib.use('tkagg')
 import matplotlib.pyplot as plt
 import numpy as np
 from collections import OrderedDict
@@ -12,7 +14,7 @@ import os
 import datetime
 from PIL import Image, ImageFilter
 
-from kan import KernelAutoEncoder, FlattenChannels, StackChannels
+from kan import KernelAutoEncoder
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 dtype = torch.float32
@@ -28,7 +30,7 @@ C = 3
 H = 32
 W = H
 img_size = H
-N = 512
+N = 10
 learning_rate = 1e-5
 
 transform = transforms.Compose([transforms.ToTensor()])
@@ -40,7 +42,6 @@ train_dataset = torchvision.datasets.CIFAR100(
 train_loader = torch.utils.data.DataLoader(
     train_dataset, batch_size=N, shuffle=True
 )
-
 
 encoder_count = 16
 window_size = 8
@@ -57,7 +58,7 @@ model = model.to(device=device)
 
 epoch = 0
 
-load_checkpoint = False
+load_checkpoint = True
 
 if load_checkpoint:
   print ("Loading model from latest checkpoint...")
@@ -67,89 +68,48 @@ if load_checkpoint:
   epoch = checkpoint['epoch']
   avg_loss = checkpoint['avg_loss']
 
-criterion = nn.MSELoss()
 
-model.train()
-
-print(datetime.datetime.now(), ": Training started." )
-
-while True:
-  print (datetime.datetime.now(), ": Epoch started ...", end="", flush=True)
-  total_loss = 0
-  total_recon_loss = 0.
-  epoch += 1
-  n = 0
-  for batch_features, _ in train_loader:
-    n += 1
-    batch_features = batch_features.to(device)
-    optimizer.zero_grad()
-    dual_loss, recon_loss, recon = model (batch_features)
-    train_loss = dual_loss
-    train_loss.backward()
-    optimizer.step()
-    total_loss += train_loss.item()
-    total_recon_loss += recon_loss.item()
-    
-  avg_loss = total_loss / len(train_loader)
-  avg_recon_loss = total_recon_loss / len(train_loader)
-
-  print ("completed.", flush=True)
-  per_pixel_sqrd_err = str(round(avg_recon_loss * 100, 4))
-  print ("Recon Squared Error = ", avg_recon_loss, ", (", per_pixel_sqrd_err, ")")
-  print(datetime.datetime.now(), " : epoch : {}, dual loss = {}".format(epoch, avg_loss))
-
-  if (epoch) % 2 == 0:
-    print ("Saving model...", end=" ")
-    torch.save({
-        'epoch': epoch,
-        'model_state_dict': model.state_dict(),
-        'optimizer_state_dict': optimizer.state_dict(),        
-        'avg_loss': avg_loss
-        }, checkpoint_path)
-    print ("Saving complete.")
-  
 test_dataset = torchvision.datasets.CIFAR100(
     root=data_dir, train=False, transform=transform, download=True
 )
 
-test_batch = 10
 test_loader = torch.utils.data.DataLoader(
-    test_dataset, batch_size=test_batch, shuffle=False
+    test_dataset, batch_size=N, shuffle=False
 )
 
 test_examples = None
 
 model.eval()
 
-test = 0
+batches_to_run = 1
+batch_no = 1
+
 with torch.no_grad():
-  for batch_features in train_loader:
-    if test > 3:
+  for test_inputs, test_labels in test_loader:
+    if batch_no > batches_to_run:
         break
-    test += 1
-    #print("batch feature type: ", type(batch_features))    
-    batch_features = torch.tensor(batch_features[0], device=device)
-    #print("batch features shape: ", batch_features[0].shape)    
-    test_examples = batch_features #.reshape(-1, 3*32*32)
-    #print (type(test_examples))
-    #print (len(test_examples))
-    #print (test_examples.shape)
-    _, _, reconstruction = model(test_examples)
+    batch_no += 1
+    test_inputs = test_inputs.to(device)
+    img_shape = (3, 32, 32)
+
+    _, _, reconstruction = model(test_inputs)
     #print ("model output shape: ", reconstruction.shape)
 
     plt.figure(figsize=(30, 10))
-    for index in range(test_batch):
+    for index in range(N):
+        
         # display original
-        ax = plt.subplot(2, test_batch, index + 1)
-        img = test_examples[index].cpu().numpy().reshape(3, 32, 32)
+        ax = plt.subplot(2, N, index + 1)
+        img = test_inputs[index].cpu().numpy().reshape(img_shape)
         img = img.transpose(1, 2, 0)
         plt.imshow(img)
         #plt.gray()
         ax.get_xaxis().set_visible(False)
         ax.get_yaxis().set_visible(False)
-
+        
         # display reconstruction
-        ax = plt.subplot(2, test_batch, index + 1 + test_batch)
+        
+        ax = plt.subplot(2, N, index + 1 + N)
         img = reconstruction[index]            
 
         img = img.cpu().numpy()

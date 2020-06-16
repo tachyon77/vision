@@ -13,12 +13,12 @@ class KernelAutoEncoder(torch.nn.Module):
     self.window_size = window_size
     self.encoding_size = encoding_size
     self.encoder_weights = nn.Parameter(torch.Tensor(window_size**2, encoding_size**2 * encoder_count))
-    self.decoder_overlapped_weights = nn.Parameter(torch.Tensor(encoding_size**2 * encoder_count, window_size**2 * encoder_count))
+    self.decoder_overlapped_weights = nn.Parameter(torch.Tensor(encoding_size**2, window_size**2))
     self.decoder_non_overlapped_weights = nn.Parameter(torch.Tensor(encoding_size**2, window_size**2))
     self.encoder_non_overalapped_bias = nn.Parameter(torch.zeros(non_overlapped_slide_count, self.encoding_size**2 * self.encoder_count))
     self.encoder_overalapped_bias = nn.Parameter(torch.zeros(overlapped_slide_count, self.encoding_size**2 * self.encoder_count))
     self.decoder_non_overlapped_bias = nn.Parameter(torch.zeros(non_overlapped_slide_count, self.window_size**2))
-    self.decoder_overlapped_bias = nn.Parameter(torch.zeros(overlapped_slide_count, self.window_size**2 * self.encoder_count))
+    self.decoder_overlapped_bias = nn.Parameter(torch.zeros(overlapped_slide_count, self.window_size**2))
     nn.init.xavier_uniform_(self.encoder_weights)
     nn.init.xavier_uniform_(self.decoder_non_overlapped_weights)
     nn.init.xavier_uniform_(self.decoder_overlapped_weights)
@@ -41,18 +41,24 @@ class KernelAutoEncoder(torch.nn.Module):
     overlapped_input_windows = self.overlapped_unfold(single_channel_image) # (N, window_count, window_size**2)
     overlapped_input_windows = overlapped_input_windows.permute(0, 2, 1)
 
+    # encode
     overlapped_encodings = torch.matmul(overlapped_input_windows, self.encoder_weights)   
     overlapped_encodings += self.encoder_overalapped_bias
+    
+
+    # combine encodings
+    N, window_count, _ = overlapped_encodings.shape
+    overlapped_encodings = overlapped_encodings.reshape(N, window_count, self.encoding_size**2, self.encoder_count)
+    overlapped_encodings = overlapped_encodings.sum(axis=3)
+
     overlapped_encodings[overlapped_encodings<0] = 0 #relu
 
+    # decode
     overlapped_decodings = torch.matmul(overlapped_encodings, self.decoder_overlapped_weights)    
     overlapped_decodings += self.decoder_overlapped_bias
     overlapped_decodings = self.decoder_sigmoid(overlapped_decodings)
 
-    expected = torch.cat([overlapped_input_windows]*self.encoder_count)
-    expected = expected.reshape(overlapped_decodings.shape)
-
-    return (overlapped_decodings, expected)    
+    return (overlapped_decodings, overlapped_input_windows)    
 
   def non_overlapped_channel_encoding(self, single_channel_image):
     assert (len(single_channel_image.shape) == 4)
@@ -65,12 +71,14 @@ class KernelAutoEncoder(torch.nn.Module):
     non_overlapped_encodings = torch.matmul(non_overlapped_input_windows, self.encoder_weights) 
     # ( N, window_count, encoding_size**2 * encoding_count)
     non_overlapped_encodings += self.encoder_non_overalapped_bias
-    non_overlapped_encodings[non_overlapped_encodings<0] = 0 #relu
+    
     # end
 
     # combine encodings
     non_overlapped_encodings = non_overlapped_encodings.reshape(N, window_count, self.encoding_size**2, self.encoder_count)
     non_overlapped_encodings = non_overlapped_encodings.sum(axis=3)
+
+    non_overlapped_encodings[non_overlapped_encodings<0] = 0 #relu
 
     # generate decodings sigma(Wx+b)
     # (N, window_count, self.encoding_size**2) x (self.encoding_size**2, self.window_size**2)
