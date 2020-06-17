@@ -25,7 +25,6 @@ class KernelAutoEncoder(torch.nn.Module):
 
     self.overlapped_unfold = nn.Unfold(kernel_size=(window_size, window_size), stride=1)
     self.nonoverlapped_unfold = nn.Unfold(kernel_size=(window_size, window_size), stride = window_size)
-    self.loss_criteria = nn.MSELoss()
     self.decoder_sigmoid = nn.Sigmoid()
     self.criterion = nn.MSELoss()
     self.fold = nn.Fold(
