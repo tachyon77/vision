@@ -15,7 +15,6 @@ class KernelAutoEncoderSimple(torch.nn.Module):
     self.encoder_weights = nn.Parameter(torch.Tensor(window_size**2, encoding_size**2 * encoder_count))
     self.decoder_weights = nn.Parameter(torch.Tensor(encoding_size**2, window_size**2))
     self.encoder_bias = nn.Parameter(torch.zeros(1, self.encoding_size**2 * self.encoder_count))
-    #self.encoder_non_overalapped_bias = nn.Parameter(torch.zeros(non_overlapped_slide_count, self.encoding_size**2 * self.encoder_count))
     self.decoder_bias = nn.Parameter(torch.zeros(1, self.window_size**2))
     nn.init.xavier_uniform_(self.encoder_weights)
     nn.init.xavier_uniform_(self.decoder_weights)
@@ -97,118 +96,10 @@ class KernelAutoEncoderSimple(torch.nn.Module):
       output, expected = self.overlapped_channel_encoding(channel)
       overlapping_loss += self.criterion(output, expected)
 
-      channel_recon = self.reconstruct_channel(channel)      
-      channel_recon = torch.squeeze(self.fold(channel_recon.permute(0, 2, 1)))
-      reconstructed[:, c, :, :] = channel_recon
+      if self.training == False:
+        channel_recon = self.reconstruct_channel(channel)      
+        channel_recon = torch.squeeze(self.fold(channel_recon.permute(0, 2, 1)))
+        reconstructed[:, c, :, :] = channel_recon
         
     return overlapping_loss, reconstructed
-
-class Flatten(torch.nn.Module):
-    def __init__(self):
-        super(Flatten, self).__init__()
-
-    def forward(self, x):
-        """
-        """
-        N = x.shape[0]
-        return x.reshape(N, -1)
-
-class StackChannels(torch.nn.Module):
-    def __init__(self):
-        super(StackChannels, self).__init__()
-
-    def forward(self, channels):
-        """
-        channels[i] : (N, D)
-        """
-        return torch.stack(channels)
-
-class ReLUChannels(torch.nn.Module):
-    def __init__(self, channel_count, D):
-        super(ReLUChannels, self).__init__()
-        self.channel_count = channel_count
-        self.relus = nn.ModuleList()
-        for i in range (channel_count):
-          self.relus.append(nn.ReLU(D))
-
-    def forward(self, channels):
-        """
-        channels[i] : (N, D)
-        """
-        output = []
-        for i in range(self.channel_count):
-          output.append(self.relus[i](channels[i]))
-      
-        return output
-
-class SigmoidChannels(torch.nn.Module):
-    def __init__(self, channel_count, D, shift=0):
-        super(SigmoidChannels, self).__init__()
-        self.channel_count = channel_count
-        self.sigmoids = nn.ModuleList()
-        for i in range (channel_count):
-          self.sigmoids.append(nn.Sigmoid())
-
-    def forward(self, channels):
-        """
-        channels[i] : (N, D)
-        """
-        output = []
   
-        for i in range(self.channel_count):
-          output.append(self.sigmoids[i](channels[i]))
-      
-        #print (output[0])
-        return output
-
-class BatchNormChannels(torch.nn.Module):
-    def __init__(self, channel_count, D):
-        super(BatchNormChannels, self).__init__()
-        self.channel_count = channel_count
-        self.batchnorms = nn.ModuleList()
-        for i in range(self.channel_count):
-          self.batchnorms.append(nn.BatchNorm1d(D))
-
-    def forward(self, channels):
-        """
-        channels[i] : (N, D)
-        """
-        output = []
-        for i in range(self.channel_count):
-          output.append(self.batchnorms[i](channels[i]))
-      
-        return output
-
-class LinearChannels(torch.nn.Module):
-    def __init__(self, channel_count, D_in, D_out):
-        super(LinearChannels, self).__init__()
-        self.channel_count = channel_count
-        self.linears = nn.ModuleList()
-        for i in range(self.channel_count):
-          self.linears.append(nn.Linear(D_in, D_out))
-      
-    def forward(self, channels):
-        """
-        channels[i] : (N, D)
-        """
-        output = []
-        for i in range(self.channel_count):
-          output.append(self.linears[i](channels[i]))
-      
-        return output
-
-class FlattenChannels(torch.nn.Module):
-    def __init__(self):
-        super(FlattenChannels, self).__init__()
- 
-    def forward(self, channels):
-        """
-        channels[i] : (N, H, W)
-        """
-        N, _, _ = channels[0].shape
-        channels_flat = []
-        for channel in channels:
-          channel_flat = channel.reshape(N, -1)
-          channels_flat.append(channel_flat)
- 
-        return channels_flat

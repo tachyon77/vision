@@ -41,7 +41,6 @@ train_loader = torch.utils.data.DataLoader(
     train_dataset, batch_size=N, shuffle=True
 )
 
-
 encoder_count = 16
 window_size = 8
 encoding_size = 4
@@ -83,7 +82,7 @@ while True:
     n += 1
     batch_features = batch_features.to(device)
     optimizer.zero_grad()
-    loss, recon = model (batch_features)
+    loss, _ = model (batch_features)
     train_loss = loss
     train_loss.backward()
     optimizer.step()
@@ -103,57 +102,3 @@ while True:
         'avg_loss': avg_loss
         }, checkpoint_path)
     print ("Saving complete.")
-  
-test_dataset = torchvision.datasets.CIFAR100(
-    root=data_dir, train=False, transform=transform, download=True
-)
-
-test_batch = 10
-test_loader = torch.utils.data.DataLoader(
-    test_dataset, batch_size=test_batch, shuffle=False
-)
-
-test_examples = None
-
-model.eval()
-
-test = 0
-with torch.no_grad():
-  for batch_features in train_loader:
-    if test > 3:
-        break
-    test += 1
-    #print("batch feature type: ", type(batch_features))    
-    batch_features = torch.tensor(batch_features[0], device=device)
-    #print("batch features shape: ", batch_features[0].shape)    
-    test_examples = batch_features #.reshape(-1, 3*32*32)
-    #print (type(test_examples))
-    #print (len(test_examples))
-    #print (test_examples.shape)
-    _, reconstruction = model(test_examples)
-    #print ("model output shape: ", reconstruction.shape)
-
-    plt.figure(figsize=(30, 10))
-    for index in range(test_batch):
-        # display original
-        ax = plt.subplot(2, test_batch, index + 1)
-        img = test_examples[index].cpu().numpy().reshape(3, 32, 32)
-        img = img.transpose(1, 2, 0)
-        plt.imshow(img)
-        #plt.gray()
-        ax.get_xaxis().set_visible(False)
-        ax.get_yaxis().set_visible(False)
-
-        # display reconstruction
-        ax = plt.subplot(2, test_batch, index + 1 + test_batch)
-        img = reconstruction[index]            
-
-        img = img.cpu().numpy()
-        img = img.transpose(1, 2, 0)
-
-        plt.imshow(img)
-        #plt.gray()
-        ax.get_xaxis().set_visible(False)
-        ax.get_yaxis().set_visible(False)
-    plt.show()
-
