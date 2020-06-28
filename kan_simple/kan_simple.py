@@ -6,12 +6,16 @@ import torch.nn as nn
 dtype = torch.cuda.FloatTensor
 
 class KernelAutoEncoderSimple(torch.nn.Module):
-  def __init__(self, img_size, encoder_count, window_size, encoding_size, non_overlapped_slide_count, overlapped_slide_count):  
+  def __init__(self, img_shape, encoder_count, window_size, encoding_size):  
     super(KernelAutoEncoderSimple, self).__init__()
-    self.img_size = img_size
+    self.channel_count, self.img_len, _ = img_shape
     self.encoder_count = encoder_count
     self.window_size = window_size
     self.encoding_size = encoding_size
+
+    self.overlapped_slider_count = (self.img_len - window_size + 1) ** 2
+    self.non_overlapped_slider_count = (self.img_len // window_size) ** 2
+
     self.encoder_weights = nn.Parameter(torch.Tensor(window_size**2, encoding_size**2 * encoder_count))
     self.decoder_weights = nn.Parameter(torch.Tensor(encoding_size**2, window_size**2))
     self.encoder_bias = nn.Parameter(torch.zeros(1, self.encoding_size**2 * self.encoder_count))
@@ -24,7 +28,7 @@ class KernelAutoEncoderSimple(torch.nn.Module):
     self.decoder_sigmoid = nn.Sigmoid()
     self.criterion = nn.MSELoss()
     self.fold = nn.Fold(
-      output_size=(self.img_size, self.img_size), 
+      output_size=(self.img_len, self.img_len), 
       kernel_size=(self.window_size, self.window_size), 
       stride=self.window_size)
       
@@ -87,10 +91,9 @@ class KernelAutoEncoderSimple(torch.nn.Module):
   def forward(self, x):
     assert (len(x.shape) == 4)
 
-    channel_count = x.shape[1]
     reconstructed = torch.Tensor(x.shape)
     overlapping_loss = 0
-    for c in range(channel_count):
+    for c in range(self.channel_count):
       channel = x[:, c, :, :].reshape(x.shape[0], 1, x.shape[2], x.shape[3])
   
       output, expected = self.overlapped_channel_encoding(channel)

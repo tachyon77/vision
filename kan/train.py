@@ -57,7 +57,7 @@ model = model.to(device=device)
 
 epoch = 0
 
-load_checkpoint = False
+load_checkpoint = True
 
 if load_checkpoint:
   print ("Loading model from latest checkpoint...")
@@ -95,11 +95,11 @@ while True:
 
   print ("completed.", flush=True)
   per_pixel_sqrd_err = str(round(avg_recon_loss * 100, 4))
-  print ("Recon Squared Error = ", avg_recon_loss, ", (", per_pixel_sqrd_err, ")")
-  print(datetime.datetime.now(), " : epoch : {}, dual loss = {}".format(epoch, avg_loss))
+  print (datetime.datetime.now(), ": Recon Squared Error = ", avg_recon_loss, ", (", per_pixel_sqrd_err, ")")
+  print(datetime.datetime.now(), ": Epoch : {}, dual loss = {}".format(epoch, avg_loss))
 
   if (epoch) % 2 == 0:
-    print ("Saving model...", end=" ")
+    print (datetime.datetime.now(), "Saving model...", end=" ")
     torch.save({
         'epoch': epoch,
         'model_state_dict': model.state_dict(),
