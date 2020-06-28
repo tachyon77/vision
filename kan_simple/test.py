@@ -15,46 +15,9 @@ import datetime
 from PIL import Image, ImageFilter
 
 from kan_simple import KernelAutoEncoderSimple
+import config
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-dtype = torch.float32
-seed = 42
-torch.manual_seed(seed)
-torch.backends.cudnn.benchmark = False
-torch.backends.cudnn.deterministic = True
-
-data_dir = "~/vision_data/cifar100"
-checkpoint_path = './checkpoints/latest'
-
-C = 3
-H = 32
-W = H
-img_size = H
-N = 10
-learning_rate = 1e-5
-
-transform = transforms.Compose([transforms.ToTensor()])
-
-train_dataset = torchvision.datasets.CIFAR100(
-    root=data_dir, train=True, transform=transform, download=True
-)
-
-train_loader = torch.utils.data.DataLoader(
-    train_dataset, batch_size=N, shuffle=True
-)
-
-encoder_count = 16
-window_size = 8
-encoding_size = 4
-overlapped_slider_count = (img_size - window_size + 1) ** 2
-non_overlapped_slider_count = (img_size // window_size) ** 2
-
-model = nn.Sequential (
-    KernelAutoEncoderSimple(img_size, encoder_count, window_size, encoding_size, non_overlapped_slider_count, overlapped_slider_count)
-)
-
-optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-model = model.to(device=device)
+model, optimizer, checkpoint_path = config.build_model()
 
 epoch = 0
 
@@ -69,19 +32,13 @@ if load_checkpoint:
   avg_loss = checkpoint['avg_loss']
 
 
-test_dataset = torchvision.datasets.CIFAR100(
-    root=data_dir, train=False, transform=transform, download=True
-)
-
-test_loader = torch.utils.data.DataLoader(
-    test_dataset, batch_size=N, shuffle=False
-)
+train_loader, test_loader = config.get_data_loaders()
 
 test_examples = None
 
 model.eval()
 
-batches_to_run = 1
+batches_to_run = 3
 batch_no = 1
 
 with torch.no_grad():
@@ -89,18 +46,17 @@ with torch.no_grad():
     if batch_no > batches_to_run:
         break
     batch_no += 1
-    test_inputs = test_inputs.to(device)
-    img_shape = (3, 32, 32)
+    test_inputs = test_inputs.to(config.device)
 
     _, reconstruction = model(test_inputs)
     #print ("model output shape: ", reconstruction.shape)
 
     plt.figure(figsize=(30, 10))
-    for index in range(N):
+    for index in range(config.test_batch_size):
         
         # display original
-        ax = plt.subplot(2, N, index + 1)
-        img = test_inputs[index].cpu().numpy().reshape(img_shape)
+        ax = plt.subplot(2, config.test_batch_size, index + 1)
+        img = test_inputs[index].cpu().numpy().reshape(config.img_shape)
         img = img.transpose(1, 2, 0)
         plt.imshow(img)
         #plt.gray()
@@ -109,7 +65,7 @@ with torch.no_grad():
         
         # display reconstruction
         
-        ax = plt.subplot(2, N, index + 1 + N)
+        ax = plt.subplot(2, config.test_batch_size, index + 1 + config.test_batch_size)
         img = reconstruction[index]            
 
         img = img.cpu().numpy()

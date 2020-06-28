@@ -21,19 +21,22 @@ torch.manual_seed(seed)
 torch.backends.cudnn.benchmark = False
 torch.backends.cudnn.deterministic = True
 
-data_dir = "~/vision_data/cifar100"
-checkpoint_path = './checkpoints/latest'
+data_dir = "~/vision_data/imagenet"
+checkpoint_path = './checkpoints/imagenet/latest'
 
 C = 3
-H = 32
+H = 256
 W = H
 img_size = H
 N = 512
 learning_rate = 1e-5
 
-transform = transforms.Compose([transforms.ToTensor()])
+transform = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Resize((img_size, img_size))
+    ])
 
-train_dataset = torchvision.datasets.CIFAR100(
+train_dataset = torchvision.datasets.ImageNet(
     root=data_dir, train=True, transform=transform, download=True
 )
 
@@ -57,7 +60,7 @@ model = model.to(device=device)
 
 epoch = 0
 
-load_checkpoint = True
+load_checkpoint = False
 
 if load_checkpoint:
   print ("Loading model from latest checkpoint...")
@@ -108,7 +111,7 @@ while True:
         }, checkpoint_path)
     print ("Saving complete.")
   
-test_dataset = torchvision.datasets.CIFAR100(
+test_dataset = torchvision.datasets.ImageNet(
     root=data_dir, train=False, transform=transform, download=True
 )
 
