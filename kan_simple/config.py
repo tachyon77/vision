@@ -17,12 +17,12 @@ img_shape = (3,32,32)
 train_batch_size = 1024
 test_batch_size = 10
 
-data_dir = "~/vision_data/cifar100"
+data_dir = "C:/Users/moaun/Documents/vision/data/cifar100"
 
 def build_model(window_size, encoding_size, encoder_count):
   
   learning_rate = 1e-3  
-  checkpoint_path = "./checkpoints/latest_" + str(window_size) + "_" + str(encoding_size) + "_" + str(encoder_count)
+  checkpoint_path = "C:/Users/moaun/Documents/vision/kan_simple/checkpoints/latest_" + str(window_size) + "_" + str(encoding_size) + "_" + str(encoder_count)
 
   model = KernelAutoEncoderSimple(
     img_shape, 
